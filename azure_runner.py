@@ -3,8 +3,8 @@ import subprocess
 import os
 import re
 import json
-import boto3
 import websockets
+import boto3
 import ssl
 import certifi
 import uuid
@@ -129,7 +129,7 @@ def run_powershell_gettoken(tenant_id, client_id, client_secret):
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"Error executing PowerShell script: {e.stderr}")
 
-async def run_ps1_files_in_directory(azure_token, aws_token):
+async def run_ps1_files_in_directory(azure_token, aws_token,tenant_id, client_id, client_secret):
     directory = os.path.join(os.getcwd(), "AzureAD")
     run_id = str(uuid.uuid4())
 
@@ -145,7 +145,10 @@ async def run_ps1_files_in_directory(azure_token, aws_token):
                 "Bypass",
                 "-File",
                 script_path,
-                azure_token
+                azure_token,
+                tenant_id,
+                client_id,
+                client_secret
             ]
             try:
                 result = subprocess.run(powershell_command, capture_output=True, text=True, check=True)
@@ -181,7 +184,7 @@ def main():
         aws_token = get_cognito_token(args.username, args.password)
         print("AWS Token retrieval successful.")
         
-        asyncio.run(run_ps1_files_in_directory(azure_token, aws_token))
+        asyncio.run(run_ps1_files_in_directory(azure_token, aws_token, args.TenantID, args.ClientID, args.ClientSecret))
 
     except Exception as e:
         print(f"Error: {e}")
