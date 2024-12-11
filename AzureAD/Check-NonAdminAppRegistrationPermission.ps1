@@ -5,7 +5,7 @@
     )
 
     $result = @{
-        ItemNumber = "AADS016"
+        ItemNumber = "AADS015"
         UseCase = "Allowing Non-Admin Users to Register Custom Applications"
         WeightedScore = 9.09
         TechnicalInformation = "Allowing non-admin users to register custom applications opens the possibility for attackers to create malicious app registrations that request high-level permissions. This could lead to unauthorized access, privilege escalation, and broader attacks across the Azure AD environment."

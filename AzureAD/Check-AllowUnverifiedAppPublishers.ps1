@@ -4,7 +4,7 @@
     )
 
     $result = @{
-        ItemNumber = "AADS018"
+        ItemNumber = "AADS016"
         UseCase = "Applications from Unverified Publishers in Azure"
         WeightedScore = 9.09
         TechnicalInformation = "Applications from unverified publishers, whose identities aren't validated by Microsoft, may introduce untrusted or malicious software into your environment. Attackers can use these apps to gain unauthorized access, bypass security measures, or extract sensitive data from your Azure environment."

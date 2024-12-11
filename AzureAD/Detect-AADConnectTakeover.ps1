@@ -4,7 +4,7 @@
     )
 
     $result = @{
-        ItemNumber = "AADS019"
+        ItemNumber = "AADS017"
         UseCase = "AAD Connect - Application takeover"
         WeightedScore = 9.09
         TechnicalInformation = "An attacker can use the Microsoft Graph permissions granted to the AAD Connect account, specifically the Entra ID role 'Directory Synchronization Accounts', to take ownership of any enterprise application in Microsoft Entra ID (Azure AD) and add new credentials. These credentials may not be visible in the portal UI and only via Graph requests. The attacker can then sign in using this application and gain its permissions, potentially equivalent to Global Admin."

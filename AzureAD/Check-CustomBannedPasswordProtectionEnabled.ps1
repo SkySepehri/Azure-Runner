@@ -6,7 +6,7 @@ function Check-CustomBannedPasswordProtectionEnabled {
         [string]$AccessToken
     )
     $result = @{
-        ItemNumber = "ADS001"
+        ItemNumber = "AADS001"
         UseCase = "Banned Passwords Protection"
         WeightedScore = 25
         TechnicalInformation = "A banned password policy prevents users from setting weak or commonly used passwords by blacklisting specific terms. Without this protection, attackers can exploit weak passwords through dictionary attacks or credential stuffing, increasing the risk of unauthorized access. Enabling custom banned password protection strengthens security by preventing the use of easily guessable passwords."

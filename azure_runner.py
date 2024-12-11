@@ -82,10 +82,6 @@ def parse_ps_output(text):
     if 'WeightedScore' in formatted_output and formatted_output['WeightedScore']:
         formatted_output['WeightedScore'] = int(formatted_output['WeightedScore'])
     
-    # Remove '[MITRE]' from MITREMapping if it exists
-    if 'MITREMapping' in formatted_output and formatted_output['MITREMapping']:
-        formatted_output['MITREMapping'] = formatted_output['MITREMapping'].replace("[MITRE] ", "")
-    
     # Ensure that ErrorMsg is empty and ItemNumber is not part of it
     if 'ItemNumber' in formatted_output and formatted_output['ItemNumber']:
         formatted_output['ErrorMsg'] = ""  # Empty ErrorMsg
@@ -95,7 +91,6 @@ def parse_ps_output(text):
 
 def clean_remediation_solution_spacing(text):
     text = re.sub(r"RemedediationSolution", "RemediationSolution", text)
-    # Clean up the space specifically between MITREMapping and RemediationSolution
     text = re.sub(r"(MITREMapping\s+[\s\S]+?)(\s{2,})(RemediationSolution)", r"\1\n\3", text)
     return text
 

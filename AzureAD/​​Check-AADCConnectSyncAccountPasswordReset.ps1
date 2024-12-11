@@ -17,7 +17,7 @@ function Check-AADCConnectSyncAccountPasswordReset {
     # }
 
     $result = @{
-        ItemNumber = "AADS003"
+        ItemNumber = "AADS002"
         UseCase = "AAD Connect - Password reset"
         WeightedScore = 25
         TechnicalInformation = "

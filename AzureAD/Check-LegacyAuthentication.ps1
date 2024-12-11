@@ -4,7 +4,7 @@
     )
 
     $result = @{
-        ItemNumber = "ADS012"
+        ItemNumber = "AADS018"
         UseCase = "Exploiting Legacy Authentication"
         WeightedScore = 9.09
         TechnicalInformation = "Legacy authentication refers to older authentication protocols and methods, such as Basic Authentication, which are less secure compared to modern alternatives like OAuth 2.0."
