@@ -81,4 +81,7 @@ Remember to document all changes and decisions made during this remediation proc
 }
 
 $accessToken = $args[0]
-Check-PrivilegedRolesForGuestAccounts -AccessToken $accessToken
+
+$result = Check-PrivilegedRolesForGuestAccounts -AccessToken $accessToken
+
+Write-Output $result | ConvertTo-Json -Depth 10

@@ -1,4 +1,4 @@
-
+#
 function Check-AADCConnectSyncAccountPasswordReset {
     [CmdletBinding()]
     param (
@@ -71,5 +71,5 @@ In the on-premises environment, the MSOL_ user typically has the ability to rese
   }
 
 $accessToken = $args[0]
-Check-AADCConnectSyncAccountPasswordReset -AccessToken $accessToken
-
+$result = Check-AADCConnectSyncAccountPasswordReset -AccessToken $accessToken
+Write-Output $result | ConvertTo-Json -Depth 10

@@ -53,46 +53,35 @@ async def send_to_aws(action, runId, token, testName, testResult):
         print(f"Sent to AWS: {payload}")
 
 ## Formating Output
-def parse_ps_output(text):
+def parse_ps_output(raw_text):
     fields = {
-        "TechnicalInformation": r"TechnicalInformation\s+(.+)",
-        "WeightedScore": r"WeightedScore\s+(\d+)",
-        "Category": r"Category\s+(.+)",
-        "ErrorMsg": r"ErrorMsg\s*(.*)",
-        "ItemNumber": r"ItemNumber\s+(\S+)",
-        "MITREMapping": r"MITREMapping\s+(.+)",
-        "RemediationSolution": r"RemediationSolution\s+([\s\S]+?)(?=\s*(?:Status|$))",
-        "Status": r"Status\s+(\S+)",
-        "TechnicalDetails": r"TechnicalDetails\s+(.+)",
-        "UseCase": r"UseCase\s+(.+)"
+        "TechnicalInformation": r'"TechnicalInformation"\s*:\s*"([^"]+)"',
+        "WeightedScore": r'"WeightedScore"\s*:\s*([\d.]+)',
+        "Category": r'"Category"\s*:\s*"([^"]+)"',
+        "ErrorMsg": r'"ErrorMsg"\s*:\s*"([^"]+)"',
+        "ItemNumber": r'"ItemNumber"\s*:\s*"([^"]+)"',
+        "MITREMapping": r'"MITREMapping"\s*:\s*"([^"]+)"',
+        "RemediationSolution": r'"RemedediationSolution"\s*:\s*"([\s\S]+?)"(?:,\s*|$)',
+        "Status": r'"Status"\s*:\s*"([^"]+)"',
+        "TechnicalDetails": r'"TechnicalDetails"\s*:\s*(null|".*?")',
+        "UseCase": r'"UseCase"\s*:\s*"([^"]+)"'
     }
-    
-    formatted_output = {}
-    
-    for field, pattern in fields.items():
-        match = re.search(pattern, text)
+
+    # Extract each field using regex
+    extracted_data = {}
+    for key, pattern in fields.items():
+        match = re.search(pattern, raw_text, re.DOTALL)
         if match:
-            value = match.group(1).strip()
-            formatted_output[field] = value if value else ""
+            value = match.group(1)
+            if value == "null":
+                extracted_data[key] = None
+            else:
+                clean_value = bytes(value, "utf-8").decode("unicode_escape").strip()
+                extracted_data[key] = clean_value.strip('"')  
         else:
-            formatted_output[field] = ""
-    
+            extracted_data[key] = None 
 
-    # Convert WeightedScore to integer if it exists
-    if 'WeightedScore' in formatted_output and formatted_output['WeightedScore']:
-        formatted_output['WeightedScore'] = int(formatted_output['WeightedScore'])
-    
-    # Ensure that ErrorMsg is empty and ItemNumber is not part of it
-    if 'ItemNumber' in formatted_output and formatted_output['ItemNumber']:
-        formatted_output['ErrorMsg'] = ""  # Empty ErrorMsg
-        formatted_output['ItemNumber'] = formatted_output['ItemNumber']
-    
-    return formatted_output
-
-def clean_remediation_solution_spacing(text):
-    text = re.sub(r"RemedediationSolution", "RemediationSolution", text)
-    text = re.sub(r"(MITREMapping\s+[\s\S]+?)(\s{2,})(RemediationSolution)", r"\1\n\3", text)
-    return text
+    return extracted_data
 
 ## Run Scripts
 def run_powershell_gettoken(tenant_id, client_id, client_secret):
@@ -149,8 +138,7 @@ async def run_ps1_files_in_directory(azure_token, aws_token,tenant_id, client_id
                 result = subprocess.run(powershell_command, capture_output=True, text=True, check=True)
                 
                 raw_output = result.stdout.strip()
-                cleaned_text = clean_remediation_solution_spacing(raw_output)
-                formatted_output = parse_ps_output(cleaned_text)
+                formatted_output = parse_ps_output(raw_output)
 
                 await send_to_aws(action="sendmessage", runId=run_id, token=aws_token, testName=ps1_file ,testResult=formatted_output)
 

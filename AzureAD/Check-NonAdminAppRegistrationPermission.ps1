@@ -1,4 +1,5 @@
-﻿function Check-NonAdminAppRegistrationPermission {
+﻿#
+function Check-NonAdminAppRegistrationPermission {
     param (
         [Parameter(Mandatory=$true)]
         [string] $AccessToken
@@ -48,4 +49,7 @@
 }
 
 $accessToken = $args[0]
-Check-NonAdminAppRegistrationPermission -AccessToken $accessToken
+
+$result = Check-NonAdminAppRegistrationPermission -AccessToken $accessToken
+
+Write-Output $result | ConvertTo-Json -Depth 10

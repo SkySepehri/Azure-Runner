@@ -1,4 +1,5 @@
-﻿function Check-ElevateSubscriptionAccess {
+﻿##
+function Check-ElevateSubscriptionAccess {
     param (
         [string]$tenantId,
         [string]$clientId,
@@ -101,4 +102,7 @@ $tenantId = $args[1]
 $clientID = $args[2]
 $clientSecret = $args[3]
 
-Check-ElevateSubscriptionAccess -tenantId $tenantId -clientID $clientID -clientSecret $clientSecret
+
+$result = Check-ElevateSubscriptionAccess -tenantId $tenantId -clientID $clientID -clientSecret $clientSecret
+
+Write-Output $result | ConvertTo-Json -Depth 10

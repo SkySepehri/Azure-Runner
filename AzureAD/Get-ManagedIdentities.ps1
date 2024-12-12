@@ -1,4 +1,5 @@
-﻿function Get-ManagedIdentities {
+﻿#
+function Get-ManagedIdentities {
     param (
         [string]$tenantId,
         [string]$clientId,
@@ -60,4 +61,7 @@ $tenantId = $args[1]
 $clientID = $args[2]
 $clientSecret = $args[3]
 
-Get-ManagedIdentities -tenantId $tenantId -clientID $clientID -clientSecret $clientSecret
+
+$result = Get-ManagedIdentities -tenantId $tenantId -clientID $clientID -clientSecret $clientSecret
+
+Write-Output $result | ConvertTo-Json -Depth 10

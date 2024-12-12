@@ -60,4 +60,7 @@ Note: Implement CAE gradually, starting with a pilot group before full deploymen
 }
 
 $accessToken = $args[0]
-Check-ContinuousAccessEvaluation -AccessToken $accessToken
+
+$result = Check-ContinuousAccessEvaluation -AccessToken $accessToken
+
+Write-Output $result | ConvertTo-Json -Depth 10

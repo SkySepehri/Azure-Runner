@@ -1,4 +1,5 @@
-﻿function Check-InactiveUsersOrDevices {
+﻿#
+function Check-InactiveUsersOrDevices {
     [CmdletBinding()]
     param (
         [string]$AccessToken
@@ -102,5 +103,7 @@
 }
 
 $accessToken = $args[0]
-Check-InactiveUsersOrDevices -AccessToken $accessToken
 
+$result = Check-InactiveUsersOrDevices -AccessToken $accessToken
+
+Write-Output $result | ConvertTo-Json -Depth 10

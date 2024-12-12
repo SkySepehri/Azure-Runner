@@ -1,4 +1,5 @@
-﻿function Check-DSCEnabledUsingGraphAPI {
+﻿#
+function Check-DSCEnabledUsingGraphAPI {
     [CmdletBinding()]
     param (
         [string]$AccessToken
@@ -46,4 +47,7 @@
 }
 
 $accessToken = $args[0]
-Check-DSCEnabledUsingGraphAPI -AccessToken $accessToken
+
+$result = Check-DSCEnabledUsingGraphAPI -AccessToken $accessToken
+
+Write-Output $result | ConvertTo-Json -Depth 10

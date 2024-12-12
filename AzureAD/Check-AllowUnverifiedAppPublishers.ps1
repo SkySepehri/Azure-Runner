@@ -52,4 +52,6 @@
 }
 
 $accessToken = $args[0]
-Check-AllowUnverifiedAppPublishers -AccessToken $accessToken
+
+$result = Check-AllowUnverifiedAppPublishers -AccessToken $accessToken
+Write-Output $result | ConvertTo-Json -Depth 10

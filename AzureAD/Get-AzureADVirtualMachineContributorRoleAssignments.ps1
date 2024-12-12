@@ -55,4 +55,6 @@
 }
 
 $accessToken = $args[0]
-Get-AzureADVirtualMachineContributorRoleAssignments -AccessToken $accessToken
+
+$result = Get-AzureADVirtualMachineContributorRoleAssignments -AccessToken $accessToken
+Write-Output $result | ConvertTo-Json -Depth 10

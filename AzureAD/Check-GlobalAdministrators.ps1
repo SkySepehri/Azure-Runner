@@ -63,5 +63,7 @@ function Check-GlobalAdministrators {
 }
 
 $accessToken = $args[0]
-Check-GlobalAdministrators -AccessToken $accessToken
 
+$result = Check-GlobalAdministrators -AccessToken $accessToken
+
+Write-Output $result | ConvertTo-Json -Depth 10

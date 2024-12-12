@@ -62,5 +62,7 @@
 }
 
 $accessToken = $args[0]
-Check-SecurityDefaults -AccessToken $accessToken
 
+$result = Check-SecurityDefaults -AccessToken $accessToken
+
+Write-Output $result | ConvertTo-Json -Depth 10

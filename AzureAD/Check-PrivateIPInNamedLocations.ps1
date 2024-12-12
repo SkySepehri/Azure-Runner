@@ -1,4 +1,5 @@
-﻿function Check-PrivateIPInNamedLocations {
+﻿#
+function Check-PrivateIPInNamedLocations {
     [CmdletBinding()]
     param (
         [string]$AccessToken
@@ -60,4 +61,7 @@
 }
 
 $accessToken = $args[0]
-Check-PrivateIPInNamedLocations -AccessToken $accessToken
+
+$result = Check-PrivateIPInNamedLocations -AccessToken $accessToken
+
+Write-Output $result | ConvertTo-Json -Depth 10

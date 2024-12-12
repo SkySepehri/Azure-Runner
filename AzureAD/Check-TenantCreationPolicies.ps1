@@ -1,4 +1,5 @@
-﻿function Check-TenantCreationPolicies {
+﻿#
+function Check-TenantCreationPolicies {
     param (
         [Parameter(Mandatory=$true)]
         [string] $AccessToken
@@ -43,5 +44,7 @@
 }
 
 $accessToken = $args[0]
-Check-TenantCreationPolicies -AccessToken $accessToken
 
+$result = Check-TenantCreationPolicies -AccessToken $accessToken
+
+Write-Output $result | ConvertTo-Json -Depth 10

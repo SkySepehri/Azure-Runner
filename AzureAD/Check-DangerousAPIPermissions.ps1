@@ -136,4 +136,7 @@ RoleManagement.ReadWrite.Directory - Grants the application the permission to gr
 }
 
 $accessToken = $args[0]
-Check-DangerousAPIPermissions -AccessToken $accessToken
+
+$result = Check-DangerousAPIPermissions -AccessToken $accessToken
+
+Write-Output $result | ConvertTo-Json -Depth 10

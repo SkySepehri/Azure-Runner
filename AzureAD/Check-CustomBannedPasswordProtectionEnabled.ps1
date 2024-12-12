@@ -66,4 +66,7 @@ Save: Click Save to apply the changes."
 }
 
 $accessToken = $args[0]
-Check-CustomBannedPasswordProtectionEnabled -AccessToken $accessToken
+
+$result = Check-CustomBannedPasswordProtectionEnabled -AccessToken $accessToken
+
+Write-Output $result | ConvertTo-Json -Depth 10

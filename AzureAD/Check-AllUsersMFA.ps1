@@ -1,4 +1,6 @@
-﻿function Check-AllUsersMFA {
+﻿#
+
+function Check-AllUsersMFA {
     param (
         [string]$AccessToken
     )
@@ -64,4 +66,6 @@
 
 
 $accessToken = $args[0]
-Check-AllUsersMFA  -AccessToken $accessToken
+
+$result = Check-AllUsersMFA  -AccessToken $accessToken
+Write-Output $result | ConvertTo-Json -Depth 10

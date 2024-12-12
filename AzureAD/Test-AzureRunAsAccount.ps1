@@ -46,4 +46,7 @@ function Test-AzureRunAsAccount {
     return $result
 }
 
-Test-AzureRunAsAccount
+
+$result = Test-AzureRunAsAccount
+
+Write-Output $result | ConvertTo-Json -Depth 10

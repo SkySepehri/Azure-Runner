@@ -71,4 +71,7 @@
 }
 
 $accessToken = $args[0]
-Detect-AADConnectTakeover -AccessToken $accessToken
+
+$result = Detect-AADConnectTakeover -AccessToken $accessToken
+
+Write-Output $result | ConvertTo-Json -Depth 10

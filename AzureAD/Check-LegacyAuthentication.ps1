@@ -69,4 +69,7 @@ Remember to communicate these changes to your users and provide support for tran
 }
 
 $accessToken = $args[0]
-Check-LegacyAuthentication -AccessToken $accessToken
+
+$result = Check-LegacyAuthentication -AccessToken $accessToken
+
+Write-Output $result | ConvertTo-Json -Depth 10

@@ -1,3 +1,4 @@
+#
 function Check-AzureADRoleChanges {
     [CmdletBinding()]
     param (
@@ -117,4 +118,7 @@ The Privileged Role Administrator role allows its holder to assign additional En
 }
 
 $accessToken = $args[0]
-Check-AzureADRoleChanges -AccessToken $accessToken
+
+$result = Check-AzureADRoleChanges -AccessToken $accessToken
+
+Write-Output $result | ConvertTo-Json -Depth 10

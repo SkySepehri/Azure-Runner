@@ -1,4 +1,5 @@
-﻿function Check-UnrestrictedGuestEnumeration {
+﻿#
+function Check-UnrestrictedGuestEnumeration {
     [CmdletBinding()]
     param (
         [string]$AccessToken
@@ -69,4 +70,7 @@
 }
 
 $accessToken = $args[0]
-Check-UnrestrictedGuestEnumeration -AccessToken $accessToken
+
+$result = Check-UnrestrictedGuestEnumeration -AccessToken $accessToken
+
+Write-Output $result | ConvertTo-Json -Depth 10
