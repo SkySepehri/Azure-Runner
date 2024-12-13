@@ -8,6 +8,7 @@ import ssl
 import certifi
 import uuid
 import asyncio
+import threading
 from datetime import datetime, timezone
 from flask import Flask, request, jsonify
 from waitress import serve
@@ -54,7 +55,6 @@ async def send_to_aws(action, runId, token, testName, testResult):
         await aws_websocket.send(json.dumps(payload))
         print(f"Sent to AWS: {payload}")
 
-## Formatting Output
 def parse_ps_output(raw_text):
     fields = {
         "TechnicalInformation": r'"TechnicalInformation"\s*:\s*"([^"]+)"',
@@ -63,7 +63,7 @@ def parse_ps_output(raw_text):
         "ErrorMsg": r'"ErrorMsg"\s*:\s*"([^"]+)"',
         "ItemNumber": r'"ItemNumber"\s*:\s*"([^"]+)"',
         "MITREMapping": r'"MITREMapping"\s*:\s*"([^"]+)"',
-        "RemediationSolution": r'"RemedediationSolution"\s*:\s*([\s\S]+?)"(?:,\s*|$)',
+        "RemediationSolution": r'"RemediationSolution"\s*:\s*([\s\S]+?)"(?:,\s*|$)',
         "Status": r'"Status"\s*:\s*"([^"]+)"',
         "TechnicalDetails": r'"TechnicalDetails"\s*:\s*(null|".*?")',
         "UseCase": r'"UseCase"\s*:\s*"([^"]+)"'
@@ -84,7 +84,6 @@ def parse_ps_output(raw_text):
 
     return extracted_data
 
-## Run Scripts
 def run_powershell_gettoken(tenant_id, client_id, client_secret):
     script_path = os.path.join(os.getcwd(), "AzureAD", "token", "Get-MSGraphAccessToken.ps1")
 
@@ -148,6 +147,20 @@ async def run_ps1_files_in_directory(azure_token, aws_token, tenant_id, client_i
         else:
             print(f"Script {ps1_file} not found in {directory}.")
 
+def handle_request_in_background(data):
+    """Handle the request asynchronously without blocking the response."""
+    try:
+        azure_token = run_powershell_gettoken(data["TenantID"], data["ClientID"], data["ClientSecret"])
+        aws_token = get_cognito_token(data["username"], data["password"])
+
+        if "Invalid" in aws_token or "Failed" in aws_token:
+            print(aws_token)
+            return
+
+        asyncio.run(run_ps1_files_in_directory(azure_token, aws_token, data["TenantID"], data["ClientID"], data["ClientSecret"]))
+    except Exception as e:
+        print(f"Error: {str(e)}")
+
 @app.route("/run", methods=["POST"])
 def run_scripts():
     data = request.json
@@ -156,21 +169,10 @@ def run_scripts():
     if not all(key in data for key in required_keys):
         return jsonify({"error": "Missing required parameters."}), 400
 
-    try:
-        azure_token = run_powershell_gettoken(data["TenantID"], data["ClientID"], data["ClientSecret"])
-        aws_token = get_cognito_token(data["username"], data["password"])
+    threading.Thread(target=handle_request_in_background, args=(data,)).start()
 
-        if "Invalid" in aws_token or "Failed" in aws_token:
-            return jsonify({"error": aws_token}), 401
-
-        asyncio.run(run_ps1_files_in_directory(azure_token, aws_token, data["TenantID"], data["ClientID"], data["ClientSecret"]))
-
-        return jsonify({"message": "Scripts executed successfully."})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
+    return jsonify({"message": "Scripts are running in the background."}), 200
 
 if __name__ == "__main__":
     print("Server is running on port 3000...")
     serve(app, host="0.0.0.0", port=3000)
-
