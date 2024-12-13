@@ -1,4 +1,3 @@
-import argparse
 import subprocess
 import os
 import re
@@ -10,13 +9,17 @@ import certifi
 import uuid
 import asyncio
 from datetime import datetime, timezone
+from flask import Flask, request, jsonify
+from waitress import serve
 
 AWS_REGION = "ap-southeast-2"
 COGNITO_USER_POOL_ID = "ap-southeast-2_UQyJ7Oezq"
 COGNITO_CLIENT_ID = "3uj56m95fmrsfercf49rsp4jrb"
-AWS_WEBSOCKET_URI = "wss://d5dy42u24m.execute-api.ap-southeast-2.amazonaws.com/dev"
+AWS_WEBSOCKET_URI = "wss://aqe7h04pwk.execute-api.ap-southeast-2.amazonaws.com/develop/"
 
 ssl_context = ssl.create_default_context(cafile=certifi.where())
+
+app = Flask(__name__)
 
 def get_cognito_token(username, password):
     """Authenticate with AWS Cognito and retrieve an ID token."""
@@ -32,10 +35,9 @@ def get_cognito_token(username, password):
         )
         return response["AuthenticationResult"]["IdToken"]
     except client.exceptions.NotAuthorizedException:
-        print("Invalid username or password.")
+        return "Invalid username or password."
     except Exception as e:
-        print(f"Failed to authenticate with Cognito: {str(e)}")
-    return None
+        return f"Failed to authenticate with Cognito: {str(e)}"
 
 async def send_to_aws(action, runId, token, testName, testResult):
     """Send structured message to AWS WebSocket."""
@@ -52,7 +54,7 @@ async def send_to_aws(action, runId, token, testName, testResult):
         await aws_websocket.send(json.dumps(payload))
         print(f"Sent to AWS: {payload}")
 
-## Formating Output
+## Formatting Output
 def parse_ps_output(raw_text):
     fields = {
         "TechnicalInformation": r'"TechnicalInformation"\s*:\s*"([^"]+)"',
@@ -61,13 +63,12 @@ def parse_ps_output(raw_text):
         "ErrorMsg": r'"ErrorMsg"\s*:\s*"([^"]+)"',
         "ItemNumber": r'"ItemNumber"\s*:\s*"([^"]+)"',
         "MITREMapping": r'"MITREMapping"\s*:\s*"([^"]+)"',
-        "RemediationSolution": r'"RemedediationSolution"\s*:\s*"([\s\S]+?)"(?:,\s*|$)',
+        "RemediationSolution": r'"RemedediationSolution"\s*:\s*([\s\S]+?)"(?:,\s*|$)',
         "Status": r'"Status"\s*:\s*"([^"]+)"',
         "TechnicalDetails": r'"TechnicalDetails"\s*:\s*(null|".*?")',
         "UseCase": r'"UseCase"\s*:\s*"([^"]+)"'
     }
 
-    # Extract each field using regex
     extracted_data = {}
     for key, pattern in fields.items():
         match = re.search(pattern, raw_text, re.DOTALL)
@@ -113,7 +114,7 @@ def run_powershell_gettoken(tenant_id, client_id, client_secret):
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"Error executing PowerShell script: {e.stderr}")
 
-async def run_ps1_files_in_directory(azure_token, aws_token,tenant_id, client_id, client_secret):
+async def run_ps1_files_in_directory(azure_token, aws_token, tenant_id, client_id, client_secret):
     directory = os.path.join(os.getcwd(), "AzureAD")
     run_id = str(uuid.uuid4())
 
@@ -140,37 +141,36 @@ async def run_ps1_files_in_directory(azure_token, aws_token,tenant_id, client_id
                 raw_output = result.stdout.strip()
                 formatted_output = parse_ps_output(raw_output)
 
-                await send_to_aws(action="sendmessage", runId=run_id, token=aws_token, testName=ps1_file ,testResult=formatted_output)
+                await send_to_aws(action="sendmessage", runId=run_id, token=aws_token, testName=ps1_file, testResult=formatted_output)
 
             except subprocess.CalledProcessError as e:
                 print(f"Error executing {ps1_file}: {e.stderr}")
         else:
             print(f"Script {ps1_file} not found in {directory}.")
 
+@app.route("/run", methods=["POST"])
+def run_scripts():
+    data = request.json
+    required_keys = ["TenantID", "ClientID", "ClientSecret", "username", "password"]
 
-def main():
-    parser = argparse.ArgumentParser(description="Azure Runner")
-    parser.add_argument("-TenantID", required=True, help="Azure Tenant ID")
-    parser.add_argument("-ClientID", required=True, help="Azure Client ID")
-    parser.add_argument("-ClientSecret", required=True, help="Azure Client Secret")
-    parser.add_argument("-username", required=True, help="Azure Username")
-    parser.add_argument("-password", required=True, help="Azure Password")
+    if not all(key in data for key in required_keys):
+        return jsonify({"error": "Missing required parameters."}), 400
 
-    
     try:
-        args = parser.parse_args()
-        print(f"Arguments received: TenantID={args.TenantID}, ClientID={args.ClientID}, ClientSecret={args.ClientSecret}, username={args.username}, password={args.password}") 
-        
-        azure_token = run_powershell_gettoken(args.TenantID, args.ClientID, args.ClientSecret)
-        print("Azure Token retrieval successful.")
-        
-        aws_token = get_cognito_token(args.username, args.password)
-        print("AWS Token retrieval successful.")
-        
-        asyncio.run(run_ps1_files_in_directory(azure_token, aws_token, args.TenantID, args.ClientID, args.ClientSecret))
+        azure_token = run_powershell_gettoken(data["TenantID"], data["ClientID"], data["ClientSecret"])
+        aws_token = get_cognito_token(data["username"], data["password"])
 
+        if "Invalid" in aws_token or "Failed" in aws_token:
+            return jsonify({"error": aws_token}), 401
+
+        asyncio.run(run_ps1_files_in_directory(azure_token, aws_token, data["TenantID"], data["ClientID"], data["ClientSecret"]))
+
+        return jsonify({"message": "Scripts executed successfully."})
     except Exception as e:
-        print(f"Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
 
 if __name__ == "__main__":
-    main()
+    print("Server is running on port 3000...")
+    serve(app, host="0.0.0.0", port=3000)
+
