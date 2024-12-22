@@ -16,7 +16,7 @@ from waitress import serve
 AWS_REGION = "ap-southeast-2"
 COGNITO_USER_POOL_ID = "ap-southeast-2_UQyJ7Oezq"
 COGNITO_CLIENT_ID = "3uj56m95fmrsfercf49rsp4jrb"
-AWS_WEBSOCKET_URI = "wss://aqe7h04pwk.execute-api.ap-southeast-2.amazonaws.com/develop/"
+AWS_WEBSOCKET_URI = "wss://36vt8a9fp2.execute-api.ap-southeast-2.amazonaws.com/dev"
 
 ssl_context = ssl.create_default_context(cafile=certifi.where())
 
@@ -40,7 +40,7 @@ def get_cognito_token(username, password):
     except Exception as e:
         return f"Failed to authenticate with Cognito: {str(e)}"
 
-async def send_to_aws(action, runId, token, testName, testResult):
+async def send_to_aws(action, runId, token, testName, testResult, domainControllerId):
     """Send structured message to AWS WebSocket."""
     extra_headers = {"Authorization": token}
     async with websockets.connect(AWS_WEBSOCKET_URI, extra_headers=extra_headers, ssl=ssl_context) as aws_websocket:
@@ -50,7 +50,8 @@ async def send_to_aws(action, runId, token, testName, testResult):
             "token": token,
             "testName": testName,
             "testResult": testResult,
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "domainControllerId": domainControllerId
         }
         await aws_websocket.send(json.dumps(payload))
         print(f"Sent to AWS: {payload}")
@@ -113,7 +114,7 @@ def run_powershell_gettoken(tenant_id, client_id, client_secret):
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"Error executing PowerShell script: {e.stderr}")
 
-async def run_ps1_files_in_directory(azure_token, aws_token, tenant_id, client_id, client_secret):
+async def run_ps1_files_in_directory(azure_token, aws_token, tenant_id, client_id, client_secret, domainControllerId):
     directory = os.path.join(os.getcwd(), "AzureAD")
     run_id = str(uuid.uuid4())
 
@@ -140,7 +141,7 @@ async def run_ps1_files_in_directory(azure_token, aws_token, tenant_id, client_i
                 raw_output = result.stdout.strip()
                 formatted_output = parse_ps_output(raw_output)
 
-                await send_to_aws(action="sendmessage", runId=run_id, token=aws_token, testName=ps1_file, testResult=formatted_output)
+                await send_to_aws(action="sendmessage", runId=run_id, token=aws_token, testName=ps1_file, testResult=formatted_output, domainControllerId=domainControllerId)
 
             except subprocess.CalledProcessError as e:
                 print(f"Error executing {ps1_file}: {e.stderr}")
@@ -157,14 +158,14 @@ def handle_request_in_background(data):
             print(aws_token)
             return
 
-        asyncio.run(run_ps1_files_in_directory(azure_token, aws_token, data["TenantID"], data["ClientID"], data["ClientSecret"]))
+        asyncio.run(run_ps1_files_in_directory(azure_token, aws_token, data["TenantID"], data["ClientID"], data["ClientSecret"], data["domainControllerId"]))
     except Exception as e:
         print(f"Error: {str(e)}")
 
 @app.route("/run", methods=["POST"])
 def run_scripts():
     data = request.json
-    required_keys = ["TenantID", "ClientID", "ClientSecret", "username", "password"]
+    required_keys = ["TenantID", "ClientID", "ClientSecret", "username", "password","domainControllerId"]
 
     if not all(key in data for key in required_keys):
         return jsonify({"error": "Missing required parameters."}), 400
