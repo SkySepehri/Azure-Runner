@@ -1,71 +1,134 @@
-﻿#
+# Import required access token script
+#. "$PSScriptRoot\Get-MSGraphAccessToken.ps1"
 
-function Check-AllUsersMFA {
+function Get-UserMFAStatus {
+    [CmdletBinding()]
     param (
+        [Parameter(Mandatory = $true)]
         [string]$AccessToken
     )
 
-    $result = @{
-        ItemNumber = "AADS022"
-        UseCase = "Ensure Multi-Factor Authentication (MFA) is enabled for all users"
-        WeightedScore = 5
-        TechnicalInformation = "Multi-Factor Authentication adds an extra layer of security to user accounts by requiring additional verification beyond just a password."
-        Category = "Identity and Access Management"
-        TechnicalDetails = $null
-        RemedediationSolution = "Enable MFA for all users without it. This can be done through the Azure Active Directory portal or by using PowerShell scripts."
-        MITREMapping = "T1078 - Valid Accounts"
-        Status = $null
-        ErrorMsg = $null
+    # Define compliance result object
+    $complianceResult = @{
+        ItemNumber           = "AADS022"
+        UseCase             = "Ensure Multi-Factor Authentication (MFA) is enabled for all users (including external)"
+        WeightedScore       = 5
+        Category            = "Identity and Access Management"
+        TechnicalInformation = "Multi-Factor Authentication adds an extra layer of security by requiring additional verification beyond passwords"
+        MITREMapping        = "T1078 - Valid Accounts"
+        TechnicalDetails    = $null
+        RemediationSolution = "Enable MFA for all users (internal and external) through Azure AD Portal or PowerShell"
+        Status              = "Unknown"
+        ErrorMsg            = $null
     }
 
-    $usersWithoutMFA = @()
-    $nextLink = "https://graph.microsoft.com/v1.0/users?`$select=id,userPrincipalName,userType&`$filter=userType eq 'Member'&`$top=999"
+    # Define MFA method types to check
+    $validMFAMethods = @(
+        "#microsoft.graph.microsoftAuthenticatorAuthenticationMethod",
+        "#microsoft.graph.phoneAuthenticationMethod",
+        "#microsoft.graph.fido2AuthenticationMethod",
+        "#microsoft.graph.windowsHelloForBusinessAuthenticationMethod",
+        "#microsoft.graph.emailAuthenticationMethod"
+    )
 
     try {
-        do {
-            $usersResponse = Invoke-RestMethod -Uri $nextLink -Method Get -Headers @{
-                Authorization = "Bearer $AccessToken"
-            }
+        $headers = @{
+            Authorization = "Bearer $AccessToken"
+            'Content-Type' = 'application/json'
+        }
 
+        # Initialize separate lists for internal and external users
+        $internalUsersWithoutMFA = [System.Collections.ArrayList]::new()
+        $externalUsersWithoutMFA = [System.Collections.ArrayList]::new()
+        $totalInternalUsers = 0
+        $totalExternalUsers = 0
+        
+        # Query all users
+        $nextLink = "https://graph.microsoft.com/v1.0/users?`$select=id,userPrincipalName,userType&`$top=999"
+
+        # Fetch all users and their MFA status
+        while ($nextLink) {
+            $usersResponse = Invoke-RestMethod -Uri $nextLink -Headers $headers -Method Get -ErrorAction Stop
+            
             foreach ($user in $usersResponse.value) {
-                $mfaInfo = Invoke-RestMethod -Uri "https://graph.microsoft.com/v1.0/users/$($user.id)/authentication/methods" -Method Get -Headers @{
-                    Authorization = "Bearer $AccessToken"
+                $mfaUrl = "https://graph.microsoft.com/v1.0/users/$($user.id)/authentication/methods"
+                
+                try {
+                    $mfaMethods = Invoke-RestMethod -Uri $mfaUrl -Headers $headers -Method Get -ErrorAction Stop
+                    
+                    $hasMFA = $false
+                    foreach ($method in $mfaMethods.value) {
+                        if ($method.'@odata.type' -in $validMFAMethods) {
+                            $hasMFA = $true
+                            break
+                        }
+                    }
+
+                    # Check if user is external (either Guest type OR has #EXT# in UPN)
+                    $isExternal = $user.userType -eq 'Guest' -or $user.userPrincipalName -like '*#EXT#*'
+
+                    if ($isExternal) {
+                        $totalExternalUsers++
+                        if (-not $hasMFA) {
+                            [void]$externalUsersWithoutMFA.Add($user.userPrincipalName)
+                        }
+                    }
+                    else {
+                        $totalInternalUsers++
+                        if (-not $hasMFA) {
+                            [void]$internalUsersWithoutMFA.Add($user.userPrincipalName)
+                        }
+                    }
                 }
-
-                $hasMFA = $mfaInfo.value | Where-Object { $_.'@odata.type' -in @("#microsoft.graph.microsoftAuthenticatorAuthenticationMethod", "#microsoft.graph.phoneAuthenticationMethod", "#microsoft.graph.fido2AuthenticationMethod", "#microsoft.graph.windowsHelloForBusinessAuthenticationMethod", "#microsoft.graph.emailAuthenticationMethod") }
-
-                if (-not $hasMFA) {
-                    $usersWithoutMFA += $user.userPrincipalName
+                catch {
+                    Write-Warning "Failed to fetch MFA methods for user $($user.userPrincipalName): $($_.Exception.Message)"
+                    continue
                 }
             }
 
             $nextLink = $usersResponse.'@odata.nextLink'
-        } while ($nextLink)
-
-        $totalUsers = $usersResponse.'@odata.count'
-        $usersWithMFA = $totalUsers - $usersWithoutMFA.Count
-
-        if ($usersWithMFA -lt 0){
-            $usersWithMFA = 0
-                 
         }
 
-        $result.TechnicalDetails = "Total users: $totalUsers. Users with MFA: $usersWithMFA. Users without MFA: $($usersWithoutMFA.Count)."
-        if ($usersWithoutMFA.Count -gt 0) {
-            $result.TechnicalDetails += " Users without MFA: $($usersWithoutMFA -join ', ')"
+        # Calculate statistics
+        $internalUsersWithMFA = $totalInternalUsers - $internalUsersWithoutMFA.Count
+        $externalUsersWithMFA = $totalExternalUsers - $externalUsersWithoutMFA.Count
+        
+        # Prepare detailed report
+        $complianceResult.TechnicalDetails = @"
+Internal Users (no #EXT#):
+- Total: $totalInternalUsers
+- With MFA: $internalUsersWithMFA
+- Without MFA: $($internalUsersWithoutMFA.Count)
+
+External Users (Guest or #EXT#):
+- Total: $totalExternalUsers
+- With MFA: $externalUsersWithMFA
+- Without MFA: $($externalUsersWithoutMFA.Count)
+"@
+
+        if ($internalUsersWithoutMFA.Count -gt 0) {
+            $complianceResult.TechnicalDetails += "`n`nInternal Users lacking MFA: $($internalUsersWithoutMFA -join ', ')"
         }
-        $result.Status = if ($usersWithoutMFA.Count -eq 0) { "Pass" } else { "Fail" }
+        if ($externalUsersWithoutMFA.Count -gt 0) {
+            $complianceResult.TechnicalDetails += "`n`nExternal Users lacking MFA: $($externalUsersWithoutMFA -join ', ')"
+        }
+
+        # Set final status - Fail if either internal or external users are missing MFA
+        $complianceResult.Status = if (($internalUsersWithoutMFA.Count -eq 0) -and ($externalUsersWithoutMFA.Count -eq 0)) { 
+            "Pass" 
+        } else { 
+            "Fail" 
+        }
     }
     catch {
-        $result.Status = "Fail"
-        $result.ErrorMsg = "Error checking MFA status: $($_.Exception.Message)"
+        $complianceResult.Status = "Error"
+        $complianceResult.ErrorMsg = "Failed to check MFA status: $($_.Exception.Message)"
+        Write-Error $complianceResult.ErrorMsg
     }
 
-    return $result
+    return $complianceResult | ConvertTo-Json -Depth 10
 }
 
-
-$accessToken = $args[0]
-
-$result = Check-AllUsersMFA  -AccessToken $accessToken
-Write-Output $result | ConvertTo-Json -Depth 10
+# Example usage:
+#$result = Get-UserMFAStatus -AccessToken $AccessToken
+#$result | ConvertFrom-Json | Format-List
