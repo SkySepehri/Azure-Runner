@@ -1,5 +1,8 @@
-﻿function Check-LegacyAuthentication {
+. "$PSScriptRoot\Get-MSGraphAccessToken.ps1"
+
+function Check-LegacyAuthentication {
     param (
+        [Parameter(Mandatory=$true)]
         [string]$AccessToken
     )
 
@@ -7,62 +10,64 @@
         ItemNumber = "AADS018"
         UseCase = "Exploiting Legacy Authentication"
         WeightedScore = 9.09
-        TechnicalInformation = "Legacy authentication refers to older authentication protocols and methods, such as Basic Authentication, which are less secure compared to modern alternatives like OAuth 2.0."
+        TechnicalInformation = "Legacy authentication protocols (such as POP3, SMTP, IMAP, and MAPI) don't support modern security features like multi-factor authentication and can be more vulnerable to credential attacks."
         Category = "Authentication & Permission Policies"
         TechnicalDetails = $null
-        RemedediationSolution = "To address potential legacy authentication vulnerabilities, follow these steps:
-
-1. Sign in to the Azure Portal (https://portal.azure.com) as a Global Administrator.
-2. Navigate to Azure Active Directory > Security > Authentication methods.
-3. Review the list of enabled authentication methods.
-4. For each potentially vulnerable method (email and SMS):
-   a. Click on the method to open its settings.
-   b. Set the 'Enable' toggle to 'No' to disable the method.
-   c. Click 'Save' to apply the changes.
-5. Enable more secure authentication methods if not already active:
-   a. Enable and configure Microsoft Authenticator app.
-   b. Set up FIDO2 security keys.
-   c. Configure Windows Hello for Business.
-6. After disabling less secure methods, monitor sign-in logs for any failed authentication attempts using legacy protocols.
-7. Implement Conditional Access policies to further restrict legacy authentication attempts.
-
-Remember to communicate these changes to your users and provide support for transitioning to more secure authentication methods."
+        RemedediationSolution = "To address legacy authentication usage:
+1. Identify applications using legacy authentication
+2. Update applications to use modern authentication protocols
+3. Create Conditional Access policies to block legacy authentication
+4. Monitor and communicate with affected users
+5. Consider implementing Azure AD Password Protection"
         MITREMapping = "[MITRE] T1110: Brute Force"
         Status = $null
         ErrorMsg = $null 
     }
 
     try {
-        # Check authentication settings
-        $settingsUri = "https://graph.microsoft.com/v1.0/policies/authenticationMethodsPolicy"
-        $authSettings = Invoke-RestMethod -Uri $settingsUri -Headers @{Authorization = "Bearer $AccessToken"}
+        # Set up request headers
+        $headers = @{
+            'Authorization' = "Bearer $AccessToken"
+            'Content-Type' = 'application/json'
+        }
 
-        $legacyAuthPossible = $false
-        $enabledMethods = @()
+        # Check organization configuration for legacy authentication settings
+        $uri = "https://graph.microsoft.com/v1.0/organization"
+        $orgConfig = Invoke-RestMethod -Uri $uri -Headers $headers -Method Get -ErrorAction Stop
 
-        foreach ($method in $authSettings.authenticationMethodConfigurations) {
+        # Check authentication methods policy
+        $authMethodsUri = "https://graph.microsoft.com/v1.0/policies/authenticationMethodsPolicy"
+        $authMethods = Invoke-RestMethod -Uri $authMethodsUri -Headers $headers -Method Get -ErrorAction Stop
+
+        $legacyAuthIndicators = @()
+
+        # Check for basic authentication in Exchange Online
+        if ($orgConfig.value.onPremisesSyncEnabled) {
+            $legacyAuthIndicators += "Hybrid configuration detected - potential for legacy authentication through on-premises systems"
+        }
+
+        # Check for potentially risky authentication methods
+        foreach ($method in $authMethods.authenticationMethodConfigurations) {
             if ($method.state -eq "enabled") {
-                $enabledMethods += $method.id
-                if ($method.id -in @("email", "sms")) {
-                    write-host $method.id
-                    $legacyAuthPossible = $true
+                switch ($method.id) {
+                    "email" { $legacyAuthIndicators += "Email authentication enabled - potential legacy protocol usage" }
+                    "sms" { $legacyAuthIndicators += "SMS authentication enabled - potential legacy protocol usage" }
                 }
             }
         }
 
-        if ($legacyAuthPossible) {
+        if ($legacyAuthIndicators.Count -gt 0) {
             $result.Status = "Fail"
-            $result.TechnicalDetails = "Potential legacy authentication methods are enabled: $($enabledMethods -join ', '). Email and SMS methods can be used with legacy protocols."
-            write-host $result.TechnicalDetails
-            
-        } else {
+            $result.TechnicalDetails = "Potential legacy authentication detected:`n" + ($legacyAuthIndicators -join "`n")
+        }
+        else {
             $result.Status = "Pass"
-            $result.TechnicalDetails = "No legacy authentication methods detected. Enabled methods: $($enabledMethods -join ', ')"
+            $result.TechnicalDetails = "No immediate indicators of legacy authentication detected"
         }
     }
     catch {
         $result.Status = "Error"
-        $result.ErrorMsg = "Failed to check authentication settings: $($_.Exception.Message)"
+        $result.ErrorMsg = "Error checking legacy authentication settings: $($_.Exception.Message)"
     }
 
     return $result
