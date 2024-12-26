@@ -1,4 +1,4 @@
-. "$PSScriptRoot\Get-MSGraphAccessToken.ps1"
+# . "$PSScriptRoot\Get-MSGraphAccessToken.ps1"
 
 function Check-LegacyAuthentication {
     param (
