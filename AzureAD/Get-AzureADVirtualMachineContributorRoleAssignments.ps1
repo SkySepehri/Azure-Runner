@@ -1,4 +1,5 @@
-﻿function Get-AzureADVirtualMachineContributorRoleAssignments {
+# . "$PSScriptRoot\Get-MSGraphAccessToken.ps1"
+function Get-AzureADVirtualMachineContributorRoleAssignments {
     [CmdletBinding()]
     param (
         [string]$AccessToken,
@@ -12,39 +13,37 @@
         WeightedScore = 5
         TechnicalInformation = "This function retrieves and identifies all users and service principals assigned the Virtual Machine Contributor role in Azure Active Directory. The Virtual Machine Contributor role grants significant permissions, including the ability to manage virtual machines. If misconfigured, attackers can exploit these permissions to gain control over virtual machines, potentially leading to unauthorized access and data breaches."
         Category = "Object Privilege & Configuration"
-        TechnicalDetails = "The function checks for Virtual Machine Contributor role assignments and searches for Run Command events in the subscription activity log over the last 30 days."
-        RemedediationSolution = "Regularly review and audit role assignments to ensure that only authorized users and service principals have the Virtual Machine Contributor role. Remove any unnecessary or unauthorized assignments to minimize security risks."
+        TechnicalDetails = "The function checks for Virtual Machine Contributor role assignments using Microsoft Graph API."
+        RemediationSolution = "Regularly review and audit role assignments to ensure that only authorized users and service principals have the Virtual Machine Contributor role. Remove any unnecessary or unauthorized assignments to minimize security risks."
         MITREMapping = "[MITRE] T1078: Valid Accounts"
         Status = $null
-        ErrorMsg = $null 
+        ErrorMsg = $null
     }
 
     try {
-        # Get role assignments
-        $roleAssignments = Get-AzRoleAssignment -RoleDefinitionName "Virtual Machine Contributor" -ExpandPrincipalGroups -ErrorAction Stop
+        # Get role assignments using Graph API
+        $uri = "https://graph.microsoft.com/v1.0/roleManagement/directory/roleAssignments"
+        $headers = @{ Authorization = "Bearer $AccessToken" }
 
-        # Check if any role assignments are found
-        if ($roleAssignments.Count -gt 0) {
+        Write-Verbose "Fetching role assignments from Microsoft Graph API..."
+        $roleAssignments = Invoke-RestMethod -Uri $uri -Method Get -Headers $headers
+
+        # Filter for Virtual Machine Contributor assignments
+        $virtualMachineContributorAssignments = $roleAssignments.value | Where-Object {
+            $_.roleDefinitionId -match "Virtual Machine Contributor"
+        }
+
+        if ($virtualMachineContributorAssignments.Count -gt 0) {
             $result.Status = "Fail"
-            $result.TechnicalDetails = "Virtual Machine Contributor role assignments found: " + ($roleAssignments | ConvertTo-Json -Compress)
+            $result.TechnicalDetails = "Virtual Machine Contributor role assignments found: " + ($virtualMachineContributorAssignments | ConvertTo-Json -Compress)
         } else {
             $result.Status = "Pass"
             $result.TechnicalDetails = "No Virtual Machine Contributor role assignments found."
         }
 
-        # Get log events related to Run Command on Virtual Machine
-        $logEvents = Get-AzLog -AccessToken $AccessToken -StartTime $startDate -EndTime $endDate -ResourceType "Microsoft.Compute/virtualMachines/extensions" -DetailedOutput
-
-        # Check if any log events are related to Run Command on Virtual Machine
-        $runCommandEvents = $logEvents | Where-Object {
-            $_.OperationName -eq "Microsoft.Compute/virtualMachines/extensions/runCommand/action"
-        }
-
-        # If Run Command events are found, update result object
-        if ($runCommandEvents.Count -gt 0) {
-            $result.Status = "Fail"
-            $result.TechnicalDetails += "`nRun Command events detected for Virtual Machine Contributor role assignments: " + ($runCommandEvents | ConvertTo-Json -Compress)
-        }
+        # Simulate checking logs for "Run Command" events (stub for extensibility)
+        # For now, log analysis is skipped since it typically requires subscription-level access.
+        $result.TechnicalDetails += "`nNo further activity log analysis implemented in this version."
 
     } catch {
         $result.Status = "Error"
@@ -54,7 +53,7 @@
     return $result
 }
 
-$accessToken = $args[0]
-
+# Main script logic
+# $accessToken = $args[0]
 $result = Get-AzureADVirtualMachineContributorRoleAssignments -AccessToken $accessToken
 Write-Output $result | ConvertTo-Json -Depth 10
